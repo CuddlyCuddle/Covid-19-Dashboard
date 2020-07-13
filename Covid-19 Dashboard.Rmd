@@ -16,6 +16,7 @@ library(leaflet)
 library(rgdal)
 library(RColorBrewer)
 library(plotly)
+library(zoo)
 ```
 
 
@@ -36,8 +37,12 @@ Global Cases
 
 Row
 -------------------------------------
+### Global
+```{r}
+valueBox("Covid-19 Analysis")
+```
 
-### Tested Cases
+### Confirmed Cases
 ```{r}
 valueBox(cum_dat$Cases[cum_dat$Country == "World"])
 ```
@@ -52,25 +57,59 @@ valueBox(cum_dat$Deaths[cum_dat$Country == "World"])
 valueBox(paste(round(cum_dat$Deaths[cum_dat$Country == "World"]/cum_dat$Cases[cum_dat$Country == "World"]*100, 2), "%", sep = ""))
 ```
 
-Row {}
+Row {.tabset}
 -------------------------------------
-### Suseptible-Infections/Infected-Deaths
+### New Daily Infections
 ```{r}
-world_dat <- data %>% filter(location == "World") %>% mutate(date = as.Date(date))
+#Creating a Subsetted Dataframe
+world_dat <- data %>% 
+  filter(location == "World") %>% 
+  mutate(date = as.Date(date),
+         new_cases_SMA7 = rollmean(new_cases, k = 7, align = "center", fill = NA))
+
+#Creating Plot
+fig <- plot_ly(world_dat, 
+               x = ~date, 
+               y = ~new_cases, 
+               type = "bar",
+               name = "New Cases"
+               )
+
+#Adding Moving Averages
+fig <- fig %>% add_trace(y = ~new_cases_SMA7,
+                         name = "7-Day Moving Average", 
+                         type = "scatter", 
+                         mode = "lines", 
+                         line = list(color = 'rgb(250, 162, 0)'))
+fig <- fig %>% layout(yaxis = list(title = "New Cases"), 
+                      xaxis = list(title = "Date")
+  
+)
+fig
+```
+
+### Suseptible-Infected-Deaths
+```{r}
 fig <- plot_ly(world_dat, x = ~date, y = ~population-total_cases, name = "Suseptible", type = 'scatter', mode = 'lines')
 fig <- fig %>% add_trace(y = ~total_cases, name = "Infections", type = 'scatter', mode = 'lines')
 fig <- fig %>% add_trace(y = ~total_deaths, name = "Deaths", type = 'scatter', mode = 'lines')
+fig <- fig %>% layout(xaxis = list(title = "Date"), yaxis = list(title = "Population"))
 fig
 ```
+
   
-  This model is not an accurate representation of the SIR model because there is insufficient data tracking individuals who have recovered from COVID-19: thus, infections is not an accurate representation of current infection; in addition, the removed has been replaced with death due to the same reason regarding the data. For more information on the SIR model read the section named additional information.
+### Important Information
+  This model is not an accurate representation of the SIR model because there is insufficient data tracking individuals who have recovered from COVID-19: thus, infections is not an accurate representation of current infectious and wil contain both infected and infectious individuals. Where the model calls for $S$ = the number of susceptible individuals, $I$ = the number of infectious individuals, $R$ = individuals who have recovered or have deceased.
+  
+  In addition, the removed has been replaced with death due to the same reason regarding the data. For more information on the SIR model read the section named additional information.
+  
+  Please note that this model does not account for changing populations.
 
 
 
 Row
 -------------------------------------
-
-### Cases by Region
+### Cases by Country
 
 ```{r}
 ## Plotting Cases accross the world
@@ -103,23 +142,70 @@ fig
 ```{r}
 datatable(
   data %>% 
-  filter(as.Date(date) == max(as.Date(date))) %>%
-    select(Country = location, Cases = total_cases, total_cases_per_million, Deaths = total_deaths, total_deaths_per_million, Tests = total_tests) %>%
+  filter(as.Date(date) == max(as.Date(date)), location != "World") %>%
+    select(Country = location, 
+           Population = population, 
+           Cases = total_cases, 
+           "Cases Per Million" = total_cases_per_million,
+           Deaths = total_deaths, 
+           "Deaths Per Million" = total_deaths_per_million) %>%
+  mutate("PopulationInfected (%)" = round((Cases/Population)*100, 3),
+         "Mortality (%)" = round(Deaths/Cases*100, 3)) %>%
   group_by(Country) %>%
   arrange(desc(Cases))
 )
+```
+
+
+Graphics By Country 
+===================================== 
+
+Column {.sidebar}
+-------------------------------------
+```{r}
+# Sigmoid/Cum_Country(lin-log) Inputs
+
+
+# Growth Comparison
 
 ```
 
 
-Statistics By Country 
+Column 
+-------------------------------------
+```{r}
+# Plotting Sigmoid/Cum_country(lin-log)
+by_days <- data %>% group_by(location) %>% filter(total_cases >= 1) %>%
+  mutate(days = as.numeric(-rev(difftime(as.Date(date), max(as.Date(date)), units = "days")))) %>%
+  select(location, total_cases, days)
+
+ggplot()
+
+fig <- plotly(by_days, x = ~days, y = ~total_cases, type = "scatter", mode = "lines", transforms = list(list(type = "groupby", groups = ~location)))
+```
+
+
+Timeline
 ===================================== 
 
+Column {.sidebar}
+-------------------------------------
+```{r}
+
+
+
+```
+
+
+Column 
+-------------------------------------
+```{r}
 
 
 
 
+```
 
 
-Additional Information 
-===================================== 
+Additional Information
+=====================================
