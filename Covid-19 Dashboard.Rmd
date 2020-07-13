@@ -1,41 +1,125 @@
 ---
-title: "Untitled"
+title: "Covid-19"
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
+    orientation: rows
     vertical_layout: fill
+
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
+library(ggplot2)
+library(dplyr)
+library(DT)
+library(leaflet)
+library(rgdal)
+library(RColorBrewer)
+library(plotly)
 ```
 
 
-```{r}
+```{r, include=FALSE}
 data <- read.csv('https://covid.ourworldindata.org/data/owid-covid-data.csv', header = T)
 
 ```
-Column {data-width=650}
------------------------------------------------------------------------
 
-### Chart A
+```{r, echo = F}
+cum_dat <- data %>% 
+  filter(as.Date(date) == max(as.Date(date))) %>%
+    select(iso_code, Country = location, Cases = total_cases, total_cases_per_million, Deaths = total_deaths, total_deaths_per_million) %>%
+  group_by(Country)
+```
+
+Global Cases
+===================================== 
+
+Row
+-------------------------------------
+
+### Tested Cases
+```{r}
+valueBox(cum_dat$Cases[cum_dat$Country == "World"])
+```
+
+### Deaths
+```{r}
+valueBox(cum_dat$Deaths[cum_dat$Country == "World"])
+```
+
+### Mortality Rate
+```{r}
+valueBox(paste(round(cum_dat$Deaths[cum_dat$Country == "World"]/cum_dat$Cases[cum_dat$Country == "World"]*100, 2), "%", sep = ""))
+```
+
+Row {}
+-------------------------------------
+### Suseptible-Infections/Infected-Deaths
+```{r}
+world_dat <- data %>% filter(location == "World") %>% mutate(date = as.Date(date))
+fig <- plot_ly(world_dat, x = ~date, y = ~population-total_cases, name = "Suseptible", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y = ~total_cases, name = "Infections", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y = ~total_deaths, name = "Deaths", type = 'scatter', mode = 'lines')
+fig
+```
+  
+  This model is not an accurate representation of the SIR model because there is insufficient data tracking individuals who have recovered from COVID-19: thus, infections is not an accurate representation of current infection; in addition, the removed has been replaced with death due to the same reason regarding the data. For more information on the SIR model read the section named additional information.
+
+
+
+Row
+-------------------------------------
+
+### Cases by Region
 
 ```{r}
+## Plotting Cases accross the world
+l <- list(color = toRGB("grey"), width = 0.5)
+
+# specify map projection/options
+g <- list(
+  showframe = FALSE,
+  showcoastlines = FALSE,
+  projection = list(type = 'Mercator')
+)
+
+fig <- plot_geo(cum_dat)
+fig <- fig %>% add_trace(
+    z = ~Cases, color = ~Cases, colors = 'Blues',
+    text = ~Country, locations = ~iso_code, marker = list(line = l)
+  )
+fig <- fig %>% colorbar(title = 'Cases')
+fig <- fig %>% layout(autosize = T, 
+                      # width = 500, 
+                      # height = 500,
+                       geo = g)
+
+fig
 
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
 
-### Chart B
-
+### Table of Cumulative Confirmed Cases, Deaths, and Tests
 ```{r}
+datatable(
+  data %>% 
+  filter(as.Date(date) == max(as.Date(date))) %>%
+    select(Country = location, Cases = total_cases, total_cases_per_million, Deaths = total_deaths, total_deaths_per_million, Tests = total_tests) %>%
+  group_by(Country) %>%
+  arrange(desc(Cases))
+)
 
 ```
 
-### Chart C
 
-```{r}
+Statistics By Country 
+===================================== 
 
-```
 
+
+
+
+
+
+Additional Information 
+===================================== 
