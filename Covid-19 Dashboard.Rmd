@@ -26,10 +26,15 @@ data <- read.csv('https://covid.ourworldindata.org/data/owid-covid-data.csv', he
 ```
 
 ```{r, echo = F}
-cum_dat <- data %>% 
+cum_dat <- data %>% group_by(location) %>%
   filter(as.Date(date) == max(as.Date(date))) %>%
-    select(iso_code, Country = location, Cases = total_cases, total_cases_per_million, Deaths = total_deaths, total_deaths_per_million) %>%
-  group_by(Country)
+    select(iso_code,
+           Country = location, 
+           Population = population, 
+           Cases = total_cases,
+           Deaths = total_deaths) %>%
+  mutate(Mortality = round(Deaths/Cases*100, 3)) %>%
+  arrange(desc(Cases))
 ```
 
 Global Cases
@@ -112,7 +117,13 @@ Row
 ### Cases by Country
 
 ```{r}
+# Text Data
+cum_dat$hover <- with(cum_dat, paste(Country, '<br>', 
+                                     "Cases", Cases, '<br>',
+                                     "Deaths", Deaths, 
+                                     "<br>", "Mortality", paste(Mortality, "%", sep = "")))
 ## Plotting Cases accross the world
+#Boarder Colors
 l <- list(color = toRGB("grey"), width = 0.5)
 
 # specify map projection/options
@@ -124,8 +135,8 @@ g <- list(
 
 fig <- plot_geo(cum_dat)
 fig <- fig %>% add_trace(
-    z = ~Cases, color = ~Cases, colors = 'Blues',
-    text = ~Country, locations = ~iso_code, marker = list(line = l)
+    z = ~Cases, color = ~Cases, colors = 'Blues', 
+    text = ~hover, locations = ~iso_code, marker = list(line = l)
   )
 fig <- fig %>% colorbar(title = 'Cases')
 fig <- fig %>% layout(autosize = T, 
@@ -141,7 +152,7 @@ fig
 ### Table of Cumulative Confirmed Cases, Deaths, and Tests
 ```{r}
 datatable(
-  data %>% 
+  data %>% group_by(location) %>%
   filter(as.Date(date) == max(as.Date(date)), location != "World") %>%
     select(Country = location, 
            Population = population, 
@@ -151,7 +162,6 @@ datatable(
            "Deaths Per Million" = total_deaths_per_million) %>%
   mutate("PopulationInfected (%)" = round((Cases/Population)*100, 3),
          "Mortality (%)" = round(Deaths/Cases*100, 3)) %>%
-  group_by(Country) %>%
   arrange(desc(Cases))
 )
 ```
@@ -164,7 +174,7 @@ Column {.sidebar}
 -------------------------------------
 ```{r}
 # Sigmoid/Cum_Country(lin-log) Inputs
-
+selectInput("", "")
 
 # Growth Comparison
 
@@ -173,15 +183,26 @@ Column {.sidebar}
 
 Column 
 -------------------------------------
+### Cases Growth Comparison
 ```{r}
 # Plotting Sigmoid/Cum_country(lin-log)
-by_days <- data %>% group_by(location) %>% filter(total_cases >= 1) %>%
+by_days <- data %>% group_by(location) %>% filter(total_cases >= 1, location != "World") %>%
   mutate(days = as.numeric(-rev(difftime(as.Date(date), max(as.Date(date)), units = "days")))) %>%
-  select(location, total_cases, days)
+  select(location, total_cases, days, population)
+```
 
-ggplot()
 
-fig <- plotly(by_days, x = ~days, y = ~total_cases, type = "scatter", mode = "lines", transforms = list(list(type = "groupby", groups = ~location)))
+```{r}
+fig <- plot_ly(by_days, x = ~days, y = ~total_cases/population * 100, color = ~location, type = "scatter", mode = "lines")
+fig <- layout(fig, yaxis = list(title = "Percent (%) of Total Population Infected"), xaxis = list(title = "Days Since First Case"))
+fig
+```
+
+ 
+```{r}
+fig <- plot_ly(by_days[by_days$location %in% c( , ),], x = ~days, y = ~total_cases, color = ~location, type = "scatter", mode = "lines")
+fig <- layout(fig, yaxis = list(title = "Total Cases (log)",type = "log"))
+fig
 ```
 
 
