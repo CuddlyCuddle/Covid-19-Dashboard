@@ -4,7 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
-
+    runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -17,6 +17,10 @@ library(rgdal)
 library(RColorBrewer)
 library(plotly)
 library(zoo)
+library(scales)
+library(shiny)
+install.packages("flexdashboard")
+install.packages("ggplot2")
 ```
 
 
@@ -26,7 +30,7 @@ data <- read.csv('https://covid.ourworldindata.org/data/owid-covid-data.csv', he
 ```
 
 ```{r, echo = F}
-cum_dat <- data %>% group_by(location) %>%
+cum_dat <- data %>%
   filter(as.Date(date) == max(as.Date(date))) %>%
     select(iso_code,
            Country = location, 
@@ -167,28 +171,29 @@ datatable(
 ```
 
 
-Graphics By Country 
+Total Cases By Country
 ===================================== 
 
 Column {.sidebar}
 -------------------------------------
 ```{r}
-# Sigmoid/Cum_Country(lin-log) Inputs
-selectInput("", "")
-
-# Growth Comparison
-
+# Countries input
+selectInput("groups", "Select", c("First Ten Countries", "First Twenty Countries", "Top Ten Countries", "Top Twenty Countries", "Random Ten Countries", "All Countries"))
 ```
 
 
 Column 
 -------------------------------------
-### Cases Growth Comparison
+### Growth Comparison
 ```{r}
-# Plotting Sigmoid/Cum_country(lin-log)
+# Dataset
 by_days <- data %>% group_by(location) %>% filter(total_cases >= 1, location != "World") %>%
-  mutate(days = as.numeric(-rev(difftime(as.Date(date), max(as.Date(date)), units = "days")))) %>%
-  select(location, total_cases, days, population)
+  mutate(days = as.numeric(-rev(difftime(as.Date(date), max(as.Date(date)), units = "days"))),
+         new_cases_SMA7 = rollmean(new_cases, k = 7, align = "center", fill = NA)) %>%
+  select(location, total_cases, days, population, new_cases, continent, new_cases_SMA7)
+# Rand <-
+# Top_Twen <-
+
 ```
 
 
@@ -200,13 +205,49 @@ fig
 
  
 ```{r}
-fig <- plot_ly(by_days[by_days$location %in% c( , ),], x = ~days, y = ~total_cases, color = ~location, type = "scatter", mode = "lines")
+fig <- plot_ly(by_days, x = ~days, y = ~total_cases, color = ~location, type = "scatter", mode = "lines")
 fig <- layout(fig, yaxis = list(title = "Total Cases (log)",type = "log"))
 fig
 ```
 
+Growth By Country
+===================================== 
 
-Timeline
+Column {.sidebar}
+-------------------------------------
+
+```{r}
+selectInput("country1", "Select a country", sort(unique(by_days$location)), selected = 'United States')
+selectInput("country2", "Add a country", sort(unique(by_days$location)), selected = 'Brazil')
+selectInput("country3", "Add a country", sort(unique(by_days$location)), selected = 'India')
+```
+
+Column
+-------------------------------------
+```{r}
+plotly::renderPlotly({
+  # Input 1
+ fig <- plot_ly(by_days[which(by_days$location %in% c(input$country1,input$country2,input$country3)),], 
+                x = ~days, 
+                y = ~new_cases, 
+                color = ~location,
+                type = "bar")
+ 
+ fig <- fig %>% add_trace(y = ~new_cases_SMA7, 
+                         color = ~location,
+                         name = "7-Day Moving Average", 
+                         type = "scatter", 
+                         mode = "lines")
+ fig <- fig %>% layout(xaxis = list(title = "Days Since First Case"), 
+                       yaxis = list(title = "Daily New Cases"))
+ fig
+})
+
+
+```
+
+
+Timeline of Cases
 ===================================== 
 
 Column {.sidebar}
