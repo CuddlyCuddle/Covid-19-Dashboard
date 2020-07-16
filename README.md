@@ -1,4 +1,4 @@
-# A Basic Analysis of Stocks using Tesla
+# A Basic Covid Visualization
 Click **[here](https://cuddlycuddle.github.io/Covid-19-Dashboard/)** for the full report.
 # Introduction
 
