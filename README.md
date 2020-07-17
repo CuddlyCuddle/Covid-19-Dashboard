@@ -8,14 +8,8 @@ Click **[here](https://cuddlycuddle.github.io/Covid-19-Dashboard/)** for the ful
 ## About the Analysis 
 
 
-## SIR Models
-
-
 # For more Information and the Results
 
 
 # References
-
-
-
 

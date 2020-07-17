@@ -1,0 +1,10 @@
+name: covid-19_dashboard
+title:
+username:
+account: cuddlycuddles
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2584131
+bundleId: 3405275
+url: https://cuddlycuddles.shinyapps.io/covid-19_dashboard/
+when: 1595018631.58901

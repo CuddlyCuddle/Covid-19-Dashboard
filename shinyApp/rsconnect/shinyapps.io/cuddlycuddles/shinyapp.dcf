@@ -1,0 +1,10 @@
+name: shinyapp
+title:
+username:
+account: cuddlycuddles
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2584165
+bundleId: 3405101
+url: https://cuddlycuddles.shinyapps.io/shinyapp/
+when: 1595015420.55709
