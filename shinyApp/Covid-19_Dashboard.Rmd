@@ -30,7 +30,8 @@ library(stats)
 
 ```{r, include=FALSE}
 # data <- read.csv('https://covid.ourworldindata.org/data/owid-covid-data.csv', header = T)
-data <- read.csv("owid-covid-data.csv", header = T)
+ data <- read.csv("owid-covid-data.csv", header = T)
+
 ```
 
 ```{r, echo = F}
@@ -46,7 +47,7 @@ cum_dat <- data %>%
            median_age,
            gdp_per_capita,
            extreme_poverty,
-           cvd_death_rate,
+           cardiovasc_death_rate,
            diabetes_prevalence,
            life_expectancy) %>%
   mutate(Mortality = round(Deaths/Cases*100, 3)) %>%
@@ -83,11 +84,13 @@ Row {.tabset}
 -------------------------------------
 ### New Daily Infections
 ```{r}
-#Creating a Subsetted Dataframe
+# Creating a Subsetted Dataframe
 world_dat <- data %>% 
   filter(location == "World") %>% 
   mutate(date = as.Date(date),
-         new_cases_SMA7 = rollmean(new_cases, k = 7, align = "center", fill = NA))
+         new_cases_SMA7 = rollmean(new_cases, k = 7, align = "center", fill = NA),
+         Infectious = rollmean(new_cases, k = 14, align = "right", fill = 0)*14,
+         removed = lag(total_cases, 14, default = 0))
 
 #Creating Plot
 fig <- plot_ly(world_dat, 
@@ -110,10 +113,27 @@ fig <- fig %>% layout(yaxis = list(title = "New Cases"),
 fig
 ```
 
+### Total Infections
+```{r}
+#Creating Plot
+fig <- plot_ly(world_dat, 
+               x = ~date, 
+               y = ~total_cases, 
+               type = "scatter",
+               mode = "lines",
+               name = "Total Cases"
+               )
+fig <- fig %>% add_trace(y = ~total_deaths, name = "Total Deaths")
+fig <- fig %>% layout(yaxis = list(title = "Population"))
+fig
+```
+
+
 ### Suseptible-Infected-Deaths
 ```{r}
 fig <- plot_ly(world_dat, x = ~date, y = ~population-total_cases, name = "Suseptible", type = 'scatter', mode = 'lines')
-fig <- fig %>% add_trace(y = ~total_cases, name = "Infections", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y = ~Infectious, name = "2-Week of New Cases", type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y = ~removed, name = "Removed", type = 'scatter', mode = 'lines')
 fig <- fig %>% add_trace(y = ~total_deaths, name = "Deaths", type = 'scatter', mode = 'lines')
 fig <- fig %>% layout(xaxis = list(title = "Date"), yaxis = list(title = "Population"))
 fig
@@ -121,11 +141,11 @@ fig
 
   
 ### Important Information
-  This model is not an accurate representation of the SIR model because there is insufficient data tracking individuals who have recovered from COVID-19: thus, infections is not an accurate representation of current infectious and wil contain both infected and infectious individuals. Where the model calls for $S$ = the number of susceptible individuals, $I$ = the number of infectious individuals, $R$ = individuals who have recovered or have deceased.
+  This model is not an accurate representation of the SIR model because there is insufficient data tracking individuals who have recovered from COVID-19: thus, this graph assumes that individuals have Covid-19 for 2-weeks which is the average determined by this report: https://www.who.int/docs/default-source/coronaviruse/who-china-joint-mission-on-covid-19-final-report.pdf.  
   
-  In addition, the removed has been replaced with death due to the same reason regarding the data. For more information on the SIR model read the section named additional information.
+  Where the model calls for $S$ = the number of susceptible individuals, $I$ = the number of infectious individuals is the rolling 2 week sum of new cases, $R$ = individuals who have recovered or have deceased is the total quantity of cases lagged by 2 weeks.
   
-  Please note that this model does not account for changing populations.
+  In addition, it is important to state $R = Desceaced + Recovered$. The model does not include the possiblity which a person could be reinfected which current research may suggest. Nor does the model include changing population size such as deaths and/or births. 
 
 
 
@@ -274,7 +294,8 @@ plotly::renderPlotly({
                 x = ~days, 
                 y = ~new_cases, 
                 color = ~location,
-                type = "bar")
+                type = "bar",
+                height = 650)
  
  fig <- fig %>% add_trace(y = ~new_cases_SMA7, 
                          color = ~location,
@@ -296,7 +317,7 @@ Explanatory Factors
 Column {.sidebar}
 -------------------------------------
 ```{r}
-selectInput("Independent", "Select the variable for the X-axis (Explanatory Variable)", choices = c("Population Density", "Median Age", "GDP per Capita", "Extreme Poverty", "CVD Death Rate", "Diabetes Prevalence", "Life Expectancy"), selected = "GDP per Capita")
+selectInput("Independent", "Select the variable for the X-axis (Explanatory Variable)", choices = c("Population Density", "Median Age", "GDP per Capita", "Extreme Poverty", "Cardio Vascular Deaths Per Thousand", "Diabetes Prevalence", "Life Expectancy"), selected = "GDP per Capita")
 
 selectInput("Dependent", "Select the variable for the Y-axis (Dependent Variable)",  choices = c("Cases", "Deaths", "Mortality"), selected = "Mortality")
 
@@ -313,7 +334,7 @@ if ( "Population Density" %in% input$Independent) return(cum_dat[which(cum_dat$C
 if ( "Median Age" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$median_age)
 if ( "GDP per Capita" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$gdp_per_capita)
 if ( "Extreme Poverty" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$extreme_poverty)
-if ( "CVD Death Rate" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$cvd_death_rate)
+if ( "Cardio Vascular Deaths Per Thousand" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$cardiovasc_death_rate)
 if ( "Diabetes Prevalence" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$diabetes_prevalence)
 if ( "Life Expectancy" %in% input$Independent) return(cum_dat[which(cum_dat$Country != "World"),]$life_expectancy)
   })
@@ -325,7 +346,16 @@ if ( "Mortality" %in% input$Dependent) return(cum_dat[which(cum_dat$Country != "
   })
 
 renderPlotly({
- fig <- cum_dat[which(cum_dat$Country != "World"),] %>% plot_ly(x = ~indep(), y = ~dep(), color = ~continent, text = ~Country, hoverinfo = "text", type = 'scatter', mode = 'markers', tendline = "ols")
+ fig <- cum_dat[which(cum_dat$Country != "World"),] %>% plot_ly(
+   x = ~indep(), 
+   y = ~dep(), 
+   color = ~continent, 
+   text = ~Country, 
+   hoverinfo = "text", 
+   type = 'scatter', 
+   mode = 'markers', 
+   tendline = "ols",
+   height = 650)
  fig <- fig %>% layout(yaxis = list(title = input$Dependent,type = input$y_scale), xaxis = list(title = input$Independent, type = input$x_scale))
  fig
 })
