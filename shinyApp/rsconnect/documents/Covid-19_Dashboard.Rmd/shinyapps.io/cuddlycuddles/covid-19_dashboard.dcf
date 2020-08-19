@@ -5,8 +5,8 @@ account: cuddlycuddles
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2584131
-bundleId: 3427884
+bundleId: 3483548
 url: https://cuddlycuddles.shinyapps.io/covid-19_dashboard/
-when: 1595537510.07757
+when: 1596737358.10497
 asMultiple: FALSE
 asStatic: FALSE
